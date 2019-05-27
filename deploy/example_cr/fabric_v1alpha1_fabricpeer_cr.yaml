@@ -1,22 +1,22 @@
 apiVersion: hl-fabric.kompitech.com/v1alpha1
 kind: FabricPeer
 metadata:
-  name: peer5
+  name: peer1
   namespace: 2657db63-8a32-41c6-814c-6fa3d21c4731
   annotations:
-    region: Frankfurt
+    region: Region1
     fqdn: peer1.alice.example.com
 spec:
   svcType: ClusterIP
   bootstrapnodeaddress:
   certvolumesize:  1Gi
-  commonname:      peer5.alice.example.com
+  commonname:      peer1.alice.example.com
   datavolumesize:  1Gi
   image:           hyperledger/fabric-peer:1.4
   organization:    2657db63-8a32-41c6-814c-6fa3d21c4731
   certificate:
     admincerts:
-    - Name: 357fd521-b508-4f62-b346-471315a86ebc
+    - Name: admin1
       Value: |-
         -----BEGIN CERTIFICATE-----
         MIIB2TCCAX+gAwIBAgIUcBALp7q6+j3GVMkuH11W8Vb0N/gwCgYIKoZIzj0EAwIw
@@ -30,7 +30,7 @@ spec:
         cGxlLmNvbTAKBggqhkjOPQQDAgNIADBFAiBmHubGuugjSCNprB0yGeTdi6q+6mCd
         DBBCNTwN1XU+BgIhAOgYESDLs3sQabPkPTGAlVMA4vJKIZrMqxdbJb9Pi+2Z
         -----END CERTIFICATE-----
-    - Name: fcad8f8a-6e92-43ec-aeee-9f5feaa85354
+    - Name: admin2
       Value: |-
         -----BEGIN CERTIFICATE-----
         MIIB1zCCAX2gAwIBAgIUOLrxlZOurKGQXAO4kwN8dKXNkvMwCgYIKoZIzj0EAwIw
@@ -62,16 +62,16 @@ spec:
   containers:
   - name: "peer"
     resources:
-      limits:
-      requests:
+      limits: 200m
+      requests: 500Mi
     image: "image"
   - name: "dind"
     resources:
-      limits:
-      requests:
+      limits: 1
+      requests: 1500Mi
     image: "image"
   - name: "couchdb"
     resources:
-      limits:
-      requests:
+      limits: 200m
+      requests: 500Mi
     image: "image"
