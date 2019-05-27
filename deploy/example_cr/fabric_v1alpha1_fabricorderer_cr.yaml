@@ -2,7 +2,6 @@ apiVersion: hl-fabric.kompitech.com/v1alpha1
 kind: FabricOrderer
 metadata:
   name: orderer1
-  namespace: test
 spec:
   svcType: ClusterIP
   cavolumesize:  1Gi
