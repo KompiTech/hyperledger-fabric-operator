@@ -250,14 +250,10 @@ func (r *ReconcileFabricPeer) Reconcile(request reconcile.Request) (reconcile.Re
 		for j, new := range newSts.Spec.Template.Spec.Containers {
 			if current.Name == new.Name {
 				if !reflect.DeepEqual(current.Image, new.Image) {
-					if err := mergo.Merge(&candidate.Spec.Template.Spec.Containers[i].Image, newSts.Spec.Template.Spec.Containers[j].Image, mergo.WithOverride); err != nil {
-						reqLogger.Info("MERGE changes failed!!!", "Namespace", candidate.Namespace, "Name", candidate.Name, "Error", err.Error())
-					}
+					candidate.Spec.Template.Spec.Containers[i].Image = newSts.Spec.Template.Spec.Containers[j].Image
 				}
 				if !reflect.DeepEqual(current.Resources, new.Resources) {
-					if err := mergo.Merge(&candidate.Spec.Template.Spec.Containers[i].Resources, newSts.Spec.Template.Spec.Containers[j].Resources, mergo.WithOverride); err != nil {
-						reqLogger.Info("MERGE changes failed!!!", "Namespace", candidate.Namespace, "Name", candidate.Name, "Error", err.Error())
-					}
+					candidate.Spec.Template.Spec.Containers[i].Resources = newSts.Spec.Template.Spec.Containers[j].Resources
 				}
 			}
 		}
