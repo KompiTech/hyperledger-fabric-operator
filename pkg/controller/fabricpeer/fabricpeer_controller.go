@@ -268,6 +268,12 @@ func (r *ReconcileFabricPeer) Reconcile(request reconcile.Request) (reconcile.Re
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+		instance.Status.FabricPeerState = fabricv1alpha1.StateUpdating
+		err := r.client.Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "failed to update Fabric peer status")
+			return reconcile.Result{}, err
+		}
 	} else {
 		reqLogger.Info("NOTHING to update!!!")
 	}
@@ -358,22 +364,24 @@ func (r *ReconcileFabricPeer) Reconcile(request reconcile.Request) (reconcile.Re
 
 	//Update CR status
 	pod := &corev1.Pod{}
-	//labelSelector := labels.SelectorFromSet(newPeerLabels(instance))
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name + "-0", Namespace: instance.Namespace}, pod)
-	if err != nil {
-		if instance.Spec.Replicas != int32(0) {
-			reqLogger.Error(err, "failed to get pods", "Namespace", instance.Namespace, "Name", instance.Name)
-			return reconcile.Result{}, err
-		}
-		peerState := fabricv1alpha1.StateSuspended
-		reqLogger.Info("Update fabric peer status", "Namespace", instance.Namespace, "Name", instance.Name, "State", peerState)
-		instance.Status.FabricPeerState = peerState
-		err := r.client.Update(context.TODO(), instance)
+
+	for ok := true; ok; ok = instance.Status.FabricPeerState == fabricv1alpha1.StateUpdating && pod.Status.Phase == "Running" {
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name + "-0", Namespace: instance.Namespace}, pod)
 		if err != nil {
-			reqLogger.Error(err, "failed to update fabric peer status")
-			return reconcile.Result{}, err
+			if instance.Spec.Replicas != int32(0) {
+				reqLogger.Error(err, "failed to get pods", "Namespace", instance.Namespace, "Name", instance.Name)
+				return reconcile.Result{}, err
+			}
+			peerState := fabricv1alpha1.StateSuspended
+			reqLogger.Info("Update fabric peer status", "Namespace", instance.Namespace, "Name", instance.Name, "State", peerState)
+			instance.Status.FabricPeerState = peerState
+			err := r.client.Update(context.TODO(), instance)
+			if err != nil {
+				reqLogger.Error(err, "failed to update fabric peer status")
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{}, nil
 		}
-		return reconcile.Result{}, nil
 	}
 
 	peerState := ""
