@@ -1,3 +1,5 @@
+.. image:: docs/img/operator.jpg
+
 ===========================
 Hyperledger Fabric Operator
 ===========================
