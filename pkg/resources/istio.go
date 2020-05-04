@@ -120,12 +120,12 @@ func GetOrdererVirtualServiceSpec(name, target string) *crd.VirtualServiceSpec {
 }
 
 func GetPeerServerPorts(target string) *[]crd.Server {
-	server1 := crd.Server{Port: crd.Port{Name: "https-ext-listen-endpoint", Protocol: crd.ProtocolHTTPS, Number: extPort}, Hosts: []string{target}, TLS: &crd.TLSOptions{Mode: crd.TLSModePassThrough}}
-	server2 := crd.Server{Port: crd.Port{Name: "https-chaincode-listen", Protocol: crd.ProtocolHTTPS, Number: ccPort}, Hosts: []string{target}, TLS: &crd.TLSOptions{Mode: crd.TLSModePassThrough}}
+	server1 := crd.Server{Port: crd.Port{Name: "https-ext-listen-endpoint", Protocol: crd.ProtocolHTTPS, Number: extPort}, Hosts: []string{target}, TLS: &crd.TLSOptions{Mode: crd.TLSModePassThrough, SubjectAltNames: []string{}}}
+	server2 := crd.Server{Port: crd.Port{Name: "https-chaincode-listen", Protocol: crd.ProtocolHTTPS, Number: ccPort}, Hosts: []string{target}, TLS: &crd.TLSOptions{Mode: crd.TLSModePassThrough, SubjectAltNames: []string{}}}
 	return &[]crd.Server{server1, server2}
 }
 
 func GetOrdererServerPorts(target string) *[]crd.Server {
-	server := crd.Server{Port: crd.Port{Name: "https-orderer", Protocol: crd.ProtocolHTTPS, Number: ordererPort}, Hosts: []string{target}, TLS: &crd.TLSOptions{Mode: crd.TLSModePassThrough}}
+	server := crd.Server{Port: crd.Port{Name: "https-orderer", Protocol: crd.ProtocolHTTPS, Number: ordererPort}, Hosts: []string{target}, TLS: &crd.TLSOptions{Mode: crd.TLSModePassThrough, SubjectAltNames: []string{}}}
 	return &[]crd.Server{server}
 }
