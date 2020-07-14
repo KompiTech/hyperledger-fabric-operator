@@ -1,13 +1,13 @@
 notifications:
-  slack: kompitech:8LGMJMu3lGRjXX7lbp5hlwum
+  slack:
+    secure: W0jMEyjMq6CNROVyd6x3l7p74xf/Qa6vNqHaC+1NTNhMDmmKDy+HryYx4+57Q/KK6CZiyIfxhhDK2bLM9Z+jsw7g5MMNCUnZkzWR3ZOJ6nx+AdZc2zirZWqNG43mOZlE0Hm20xSQmqqtJderlKFKrAOZMDhMHMFsYzyBOzjkrGXzhBttjGAZcc60/QHG3/1gMwQnLAxalefeWgAgVYueBYXkZkDU6o3+8ZkumhFpUUAYeyXlev6aZyJDMx3HM1vzn7C2l4S2xfPsri0qBggJAioQDzQJlBjiAi5mQwudcMuMmhymruqXFdm2lHw7qZn+UgQWNtzrs4oou9Gy/f1htVb++kVcpt83wTSQvzhe6SfripZspx6mBOJ831vfMg8IyESCaahcNODSrNY3s4P8bItpL/egWaBofYGfO06CtxxnFX4J5hlw9hANJ7qbz3m8ChzB2aIW4KzisOhukMWWeHznao1VLz48Bao4ejAX4JpSSW9gg56Qvzvw8kGVNpWVpPm4uQDT5qiwjdDyygxZasmNiMydKGME7AqXqyshxoXc0MdbkVZcPF1bAi2XkmMkbVGT6rlHIh8WT0448ctv6oX29V5ZBOd1jjuMYww5dyxN4B0evER5IieCzqQJOURrPdg4I1uBrZxrwBG7AkSKdEG3o0ZqDqUFrmY2NnbxT7M=
 dist: xenial
 sudo: false
 env:
-  - GO111MODULE=on
+- GO111MODULE=on
 language: go
 before_install:
-  - 'git config --global url."git@github.com:KompiTech/".insteadOf "https://github.com/KompiTech/"'
+- git config --global url."git@github.com:KompiTech/".insteadOf "https://github.com/KompiTech/"
 go:
-  - "1.11.x"
-  - "1.12.x"
-  
+- 1.11.x
+- 1.12.x
