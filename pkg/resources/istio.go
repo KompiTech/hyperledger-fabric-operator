@@ -29,6 +29,7 @@ const (
 	ordererPort = 7050
 )
 
+//GatewayTemplate describes gateway
 type GatewayTemplate struct {
 	Name            string
 	Namespace       string
@@ -37,6 +38,7 @@ type GatewayTemplate struct {
 	OwnerReferences []metav1.OwnerReference
 }
 
+//VirtualServiceTemplate describes virtual service
 type VirtualServiceTemplate struct {
 	Name            string
 	Namespace       string
@@ -45,6 +47,7 @@ type VirtualServiceTemplate struct {
 	OwnerReferences []metav1.OwnerReference
 }
 
+// NewVirtualService returns new virtual service
 func NewVirtualService(vsvc VirtualServiceTemplate) *crd.VirtualService {
 
 	vsvcObjectMeta := metav1.ObjectMeta{
@@ -63,6 +66,7 @@ func NewVirtualService(vsvc VirtualServiceTemplate) *crd.VirtualService {
 	}
 }
 
+// NewGateway returns new gateway
 func NewGateway(gtw GatewayTemplate) *crd.Gateway {
 
 	gtwObjectMeta := metav1.ObjectMeta{
@@ -84,6 +88,7 @@ func NewGateway(gtw GatewayTemplate) *crd.Gateway {
 	}
 }
 
+// GetPeerVirtualServiceSpec returns virtual service spec for peer
 func GetPeerVirtualServiceSpec(name, target string) *crd.VirtualServiceSpec {
 	spec := crd.VirtualServiceSpec{
 		Hosts:    []string{target},
@@ -91,19 +96,20 @@ func GetPeerVirtualServiceSpec(name, target string) *crd.VirtualServiceSpec {
 	}
 
 	dst1 := crd.Destination{Port: crd.PortSelector{Number: uint32(extPort)}, Host: name}
-	tcpMatchreq1 := []crd.TlsL4MatchAttributes{crd.TlsL4MatchAttributes{Port: extPort, Sni_hosts: []string{target}}}
-	dstWeight1 := []crd.DestinationWeight{crd.DestinationWeight{Destination: dst1, Weight: 100}}
+	tcpMatchreq1 := []crd.TlsL4MatchAttributes{{Port: extPort, Sni_hosts: []string{target}}}
+	dstWeight1 := []crd.DestinationWeight{{Destination: dst1, Weight: 100}}
 	tcpRoute1 := crd.TLSRoute{Match: tcpMatchreq1, Route: dstWeight1}
 
 	dst2 := crd.Destination{Port: crd.PortSelector{Number: uint32(ccPort)}, Host: name}
-	tcpMatchreq2 := []crd.TlsL4MatchAttributes{crd.TlsL4MatchAttributes{Port: ccPort, Sni_hosts: []string{target}}}
-	dstWeight2 := []crd.DestinationWeight{crd.DestinationWeight{Destination: dst2, Weight: 100}}
+	tcpMatchreq2 := []crd.TlsL4MatchAttributes{{Port: ccPort, Sni_hosts: []string{target}}}
+	dstWeight2 := []crd.DestinationWeight{{Destination: dst2, Weight: 100}}
 	tcpRoute2 := crd.TLSRoute{Match: tcpMatchreq2, Route: dstWeight2}
 
 	spec.Tls = []crd.TLSRoute{tcpRoute1, tcpRoute2}
 	return &spec
 }
 
+// GetOrdererVirtualServiceSpec returns virtual service spec for orderer
 func GetOrdererVirtualServiceSpec(name, target string) *crd.VirtualServiceSpec {
 	spec := crd.VirtualServiceSpec{
 		Hosts:    []string{target},
@@ -111,20 +117,22 @@ func GetOrdererVirtualServiceSpec(name, target string) *crd.VirtualServiceSpec {
 	}
 
 	dst := crd.Destination{Port: crd.PortSelector{Number: uint32(ordererPort)}, Host: name}
-	tcpMatchreq := []crd.TlsL4MatchAttributes{crd.TlsL4MatchAttributes{Port: ordererPort, Sni_hosts: []string{target}}}
-	dstWeight := []crd.DestinationWeight{crd.DestinationWeight{Destination: dst, Weight: 100}}
+	tcpMatchreq := []crd.TlsL4MatchAttributes{{Port: ordererPort, Sni_hosts: []string{target}}}
+	dstWeight := []crd.DestinationWeight{{Destination: dst, Weight: 100}}
 	tcpRoute := crd.TLSRoute{Match: tcpMatchreq, Route: dstWeight}
 
 	spec.Tls = []crd.TLSRoute{tcpRoute}
 	return &spec
 }
 
+// GetPeerServerPorts returns server ports for peer
 func GetPeerServerPorts(target string) *[]crd.Server {
 	server1 := crd.Server{Port: crd.Port{Name: "https-ext-listen-endpoint", Protocol: crd.ProtocolHTTPS, Number: extPort}, Hosts: []string{target}, TLS: &crd.TLSOptions{Mode: crd.TLSModePassThrough, SubjectAltNames: []string{}}}
 	server2 := crd.Server{Port: crd.Port{Name: "https-chaincode-listen", Protocol: crd.ProtocolHTTPS, Number: ccPort}, Hosts: []string{target}, TLS: &crd.TLSOptions{Mode: crd.TLSModePassThrough, SubjectAltNames: []string{}}}
 	return &[]crd.Server{server1, server2}
 }
 
+// GetOrdererServerPorts returns server ports for orderer
 func GetOrdererServerPorts(target string) *[]crd.Server {
 	server := crd.Server{Port: crd.Port{Name: "https-orderer", Protocol: crd.ProtocolHTTPS, Number: ordererPort}, Hosts: []string{target}, TLS: &crd.TLSOptions{Mode: crd.TLSModePassThrough, SubjectAltNames: []string{}}}
 	return &[]crd.Server{server}

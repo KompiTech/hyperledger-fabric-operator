@@ -17,7 +17,7 @@
 package controller
 
 import (
-	"github.com/KompiTech/hl-fabric-operator/pkg/controller/fabricpeer"
+	"github.com/KompiTech/hyperledger-fabric-operator/pkg/controller/fabricpeer"
 )
 
 func init() {

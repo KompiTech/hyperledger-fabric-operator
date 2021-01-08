@@ -17,7 +17,7 @@
 package apis
 
 import (
-	"github.com/KompiTech/hl-fabric-operator/pkg/apis/fabric/v1alpha1"
+	"github.com/KompiTech/hyperledger-fabric-operator/pkg/apis/fabric/v1alpha1"
 )
 
 func init() {

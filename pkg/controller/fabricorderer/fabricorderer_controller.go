@@ -25,17 +25,17 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"github.com/KompiTech/hl-fabric-operator/pkg/config"
+	"github.com/KompiTech/hyperledger-fabric-operator/pkg/config"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/KompiTech/hl-fabric-operator/pkg/resources"
+	"github.com/KompiTech/hyperledger-fabric-operator/pkg/resources"
 
 	crd "github.com/jiribroulik/pkg/apis/istio/v1alpha3"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	fabricv1alpha1 "github.com/KompiTech/hl-fabric-operator/pkg/apis/fabric/v1alpha1"
+	fabricv1alpha1 "github.com/KompiTech/hyperledger-fabric-operator/pkg/apis/fabric/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -87,7 +87,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to secondary resource StatefulSet and requeue the owner FabricPeer
+	// Watch for changes to secondary resource StatefulSet and requeue the owner FabricOrderer
 	err = c.Watch(&source.Kind{Type: &appsv1.StatefulSet{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &fabricv1alpha1.FabricOrderer{},
@@ -96,7 +96,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// // Watch for changes to secondary resource Pods and requeue the owner FabricPeer
+	// // Watch for changes to secondary resource Pods and requeue the owner FabricOrderer
 	// err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
 	// 	IsController: true,
 	// 	OwnerType:    &appsv1.StatefulSet{},
@@ -125,10 +125,10 @@ type ReconcileFabricOrderer struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileFabricOrderer) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger := log.WithValues("Request.Namespace", request.Namespace)
+	reqLogger = reqLogger.WithName(request.Name)
 	reqLogger.Info("Reconciling FabricOrderer")
-
-	reqLogger.Info("Reconciling FabricPeer", "vaultAddress", config.VaultAddress)
+	defer reqLogger.Info("Reconcile done")
 
 	// Fetch the FabricOrderer instance
 	instance := &fabricv1alpha1.FabricOrderer{}
@@ -142,6 +142,16 @@ func (r *ReconcileFabricOrderer) Reconcile(request reconcile.Request) (reconcile
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
+	}
+
+	// Change state to Running when enters in Updating to prevent infinite loop
+	if instance.Status.FabricOrdererState == fabricv1alpha1.StateUpdating {
+		instance.Status.FabricOrdererState = fabricv1alpha1.StateRunning
+		err := r.client.Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "failed to update Fabric orderer status")
+			return reconcile.Result{}, err
+		}
 	}
 
 	//Set global namespace
@@ -306,9 +316,6 @@ func (r *ReconcileFabricOrderer) Reconcile(request reconcile.Request) (reconcile
 			}
 		}
 	}
-
-	reqLogger.Info("CANDIDATE", "Namespace", candidate.Spec)
-	reqLogger.Info("CURRENT", "Namespace", currentSts.Spec)
 
 	if !reflect.DeepEqual(candidate.Spec, currentSts.Spec) {
 		reqLogger.Info("UPDATING peer statefulset!!!", "Namespace", candidate.Namespace, "Name", candidate.Name)
@@ -772,7 +779,20 @@ func newOrdererVolumes(cr *fabricv1alpha1.FabricOrderer) []corev1.Volume {
 		},
 	}
 
-	for key, _ := range cr.Spec.Certificate {
+	if cr.Spec.NodeOUsEnabled {
+		volumes = append(volumes, corev1.Volume{
+			Name: "node-ous",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "node-ous",
+					},
+				},
+			},
+		})
+	}
+
+	for key := range cr.Spec.Certificate {
 		volumes = append(volumes, corev1.Volume{
 			Name: cr.GetName() + "-" + key,
 			VolumeSource: corev1.VolumeSource{
@@ -812,8 +832,16 @@ func newOrdererVolumeMounts(cr *fabricv1alpha1.FabricOrderer) []corev1.VolumeMou
 		},
 	}
 
+	if cr.Spec.NodeOUsEnabled {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "node-ous",
+			MountPath: "/etc/hyperledger/orderer/msp/config.yaml",
+			SubPath:   "config.yaml",
+		})
+	}
+
 	//Add volume mounts for secrets with certificates
-	for key, _ := range cr.Spec.Certificate {
+	for key := range cr.Spec.Certificate {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      cr.ObjectMeta.Name + "-" + key,
 			MountPath: ordererMSPPath + key,

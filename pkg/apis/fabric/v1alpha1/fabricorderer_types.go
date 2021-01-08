@@ -38,6 +38,7 @@ type FabricOrdererSpec struct {
 	Certificate    map[string][]CertificateSecret `json:"certificate"`
 	Genesis        string                         `json:"genesis"`
 	Containers     []corev1.Container             `json:"containers"`
+	NodeOUsEnabled bool                           `json:"nodeousenabled"`
 }
 
 // FabricOrdererStatus defines the observed state of FabricOrderer
