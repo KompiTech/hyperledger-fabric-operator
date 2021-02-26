@@ -1,4 +1,4 @@
-module github.com/KompiTech/hl-fabric-operator
+module github.com/KompiTech/hyperledger-fabric-operator
 
 go 1.12
 

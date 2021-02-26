@@ -17,9 +17,12 @@
 package resources
 
 import (
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 )
 
+// VaultInit vault init container configuration
 type VaultInit struct {
 	Organization string
 	CommonName   string
@@ -30,6 +33,7 @@ type VaultInit struct {
 	NodeType     string
 }
 
+// GetInitContainer returns Vault init container spec
 func GetInitContainer(vault VaultInit) []corev1.Container {
 
 	// VaultAddress := "https://10.27.247.45:8200"
@@ -44,7 +48,7 @@ func GetInitContainer(vault VaultInit) []corev1.Container {
 	mkdir /etc/vault;
 	curl --request POST -k --data '{"jwt": "'"$KUBE_TOKEN"'", "role": "hyperledger"}' -k "$VAULT_ADDRESS"/v1/auth/kubernetes-"$REGION_NAME"/login | jq -j '.auth.client_token' > /etc/vault/token;
 	export X_VAULT_TOKEN=$(cat /etc/vault/token);
-	curl -XPOST -k -H "X-Vault-Token: $X_VAULT_TOKEN" -d '{"common_name": "'$COMMON_NAME'"}' "$VAULT_ADDRESS"/v1/"$ORG_ID"/issue/MSP > /tmp/response;
+	curl -XPOST -k -H "X-Vault-Token: $X_VAULT_TOKEN" -d '{"common_name": "'$COMMON_NAME'"}' "$VAULT_ADDRESS"/v1/"$ORG_ID"/issue/` + strings.Title(vault.NodeType) + ` > /tmp/response;
 	cat /tmp/response | jq -r -j .data.certificate > "$MSP_PATH"/signcerts/peer.crt;
 	cat /tmp/response | jq -r -j .data.private_key > "$MSP_PATH"/keystore/peer.key;
 	cat /tmp/response | jq -r -j .data.issuing_ca > "$MSP_PATH"/cacerts/ca.crt;

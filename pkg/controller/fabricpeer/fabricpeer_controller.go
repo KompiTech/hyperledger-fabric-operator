@@ -22,11 +22,11 @@ import (
 
 	"github.com/imdario/mergo"
 
-	"github.com/KompiTech/hl-fabric-operator/pkg/config"
-	"github.com/KompiTech/hl-fabric-operator/pkg/resources"
+	"github.com/KompiTech/hyperledger-fabric-operator/pkg/config"
+	"github.com/KompiTech/hyperledger-fabric-operator/pkg/resources"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	fabricv1alpha1 "github.com/KompiTech/hl-fabric-operator/pkg/apis/fabric/v1alpha1"
+	fabricv1alpha1 "github.com/KompiTech/hyperledger-fabric-operator/pkg/apis/fabric/v1alpha1"
 	crd "github.com/jiribroulik/pkg/apis/istio/v1alpha3"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -121,10 +121,10 @@ type ReconcileFabricPeer struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileFabricPeer) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger := log.WithValues("Request.Namespace", request.Namespace)
+	reqLogger = reqLogger.WithName(request.Name)
 	reqLogger.Info("Reconciling FabricPeer")
-
-	reqLogger.Info("Reconciling FabricPeer", "vaultAddress", config.VaultAddress)
+	defer reqLogger.Info("Reconcile done")
 
 	// Fetch the FabricPeer instance
 	instance := &fabricv1alpha1.FabricPeer{}
@@ -140,6 +140,16 @@ func (r *ReconcileFabricPeer) Reconcile(request reconcile.Request) (reconcile.Re
 		return reconcile.Result{}, err
 	}
 
+	// Change state to Running when enters in Updating to prevent infinite loop
+	if instance.Status.FabricPeerState == fabricv1alpha1.StateUpdating {
+		instance.Status.FabricPeerState = fabricv1alpha1.StateRunning
+		err := r.client.Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "failed to update Fabric peer status")
+			return reconcile.Result{}, err
+		}
+	}
+
 	//Set global namespace
 	namespace := instance.GetNamespace()
 
@@ -148,6 +158,7 @@ func (r *ReconcileFabricPeer) Reconcile(request reconcile.Request) (reconcile.Re
 	currentServiceAccount := &corev1.ServiceAccount{}
 
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "vault", Namespace: namespace}, currentServiceAccount)
+	reqLogger.Error(err, "Error reading SA", "ISNOTFOUND", errors.IsNotFound(err))
 	if err != nil && errors.IsNotFound(err) {
 		//Secret not exists
 		reqLogger.Info("Creating a new service account", "Namespace", newServiceAccount.GetNamespace(), "Name", newServiceAccount.GetName())
@@ -259,9 +270,6 @@ func (r *ReconcileFabricPeer) Reconcile(request reconcile.Request) (reconcile.Re
 		}
 	}
 
-	reqLogger.Info("CANDIDATE", "Namespace", candidate.Spec)
-	reqLogger.Info("CURRENT", "Namespace", currentSts.Spec)
-
 	if !reflect.DeepEqual(candidate.Spec, currentSts.Spec) {
 		reqLogger.Info("UPDATING peer statefulset!!!", "Namespace", candidate.Namespace, "Name", candidate.Name)
 		err = r.client.Update(context.TODO(), candidate)
@@ -366,7 +374,9 @@ func (r *ReconcileFabricPeer) Reconcile(request reconcile.Request) (reconcile.Re
 	pod := &corev1.Pod{}
 
 	for ok := true; ok; ok = instance.Status.FabricPeerState == fabricv1alpha1.StateUpdating && pod.Status.Phase == "Running" {
+		reqLogger.Info("BREAKPOINT 13.1")
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name + "-0", Namespace: instance.Namespace}, pod)
+		reqLogger.Info("BREAKPOINT 13.2")
 		if err != nil {
 			if instance.Spec.Replicas != int32(0) {
 				reqLogger.Error(err, "failed to get pods", "Namespace", instance.Namespace, "Name", instance.Name)
@@ -412,7 +422,7 @@ func (r *ReconcileFabricPeer) Reconcile(request reconcile.Request) (reconcile.Re
 	}
 
 	// Pod already exists - don't requeue
-	reqLogger.Info("Reconcile: done", "Namespace", instance.Namespace, "Name", instance.Name)
+	reqLogger.Info("Skip reconcile: sts already exists", "Namespace", instance.Namespace, "Name", instance.Name)
 	return reconcile.Result{}, nil
 }
 
@@ -480,13 +490,67 @@ func newPeerContainers(cr *fabricv1alpha1.FabricPeer) []corev1.Container {
 	privileged := true
 	procMount := corev1.DefaultProcMount
 
+	couchDBContainer := corev1.Container{
+		Name:            "couchdb",
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Ports: []corev1.ContainerPort{
+			{
+				Name:          "containerport",
+				ContainerPort: int32(5984),
+				Protocol:      "TCP",
+			},
+		},
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("500Mi"),
+				corev1.ResourceCPU:    resource.MustParse("200m"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("500Mi"),
+				corev1.ResourceCPU:    resource.MustParse("200m"),
+			},
+		},
+		SecurityContext: &corev1.SecurityContext{
+			RunAsUser: &user,
+			ProcMount: &procMount,
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "peerdata",
+				MountPath: "/opt/couchdb/data",
+				SubPath:   "data/couchdb",
+			},
+		},
+	}
+
+	couchDBImage := "hyperledger/fabric-couchdb:0.4.14"
+	if cr.Spec.CouchDBImage != "" {
+		couchDBImage = cr.Spec.CouchDBImage
+		couchDBContainer.Env = []corev1.EnvVar{
+			{
+				Name:  "COUCHDB_USER",
+				Value: "admin",
+			},
+			{
+				Name:  "COUCHDB_PASSWORD",
+				Value: "password",
+			},
+		}
+	}
+
+	couchDBContainer.Image = couchDBImage
+
+	dindImage := "docker:18.09.3-dind"
+	if cr.Spec.DINDImage != "" {
+		dindImage = cr.Spec.DINDImage
+	}
+
 	baseContainers := []corev1.Container{
 		{
 			Name:            "peer",
 			Image:           cr.Spec.Image,
 			ImagePullPolicy: corev1.PullIfNotPresent,
-			//workingDir
-			WorkingDir: "/opt/gopath/src/github.com/hyperledger/fabric/peer",
+			WorkingDir:      "/opt/gopath/src/github.com/hyperledger/fabric/peer",
 			Ports: []corev1.ContainerPort{
 				{
 					Name:          "containerport1",
@@ -504,16 +568,13 @@ func newPeerContainers(cr *fabricv1alpha1.FabricPeer) []corev1.Container {
 					Protocol:      "TCP",
 				},
 			},
-			//command
 			Command: []string{
 				"/bin/sh",
 			},
-			//args
 			Args: []string{
 				"-c",
 				"peer node start",
 			},
-
 			LivenessProbe: &corev1.Probe{
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
@@ -545,50 +606,14 @@ func newPeerContainers(cr *fabricv1alpha1.FabricPeer) []corev1.Container {
 					corev1.ResourceCPU:    resource.MustParse("200m"),
 				},
 			},
-
-			//Volume mount
 			VolumeMounts:             newPeerVolumeMounts(cr),
 			TerminationMessagePath:   "/dev/termination-log",
 			TerminationMessagePolicy: "File",
-			//ENV
-			Env: newPeerContainerEnv(cr),
-		},
-		{
-			Name:            "couchdb",
-			Image:           "hyperledger/fabric-couchdb:0.4.14",
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Ports: []corev1.ContainerPort{
-				{
-					Name:          "containerport",
-					ContainerPort: int32(5984),
-					Protocol:      "TCP",
-				},
-			},
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("500Mi"),
-					corev1.ResourceCPU:    resource.MustParse("200m"),
-				},
-				Requests: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("500Mi"),
-					corev1.ResourceCPU:    resource.MustParse("200m"),
-				},
-			},
-			SecurityContext: &corev1.SecurityContext{
-				RunAsUser: &user,
-				ProcMount: &procMount,
-			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "peerdata",
-					MountPath: "/opt/couchdb/data",
-					SubPath:   "data/couchdb",
-				},
-			},
+			Env:                      newPeerContainerEnv(cr),
 		},
 		{
 			Name:            "dind",
-			Image:           "docker:18.09.3-dind",
+			Image:           dindImage,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			SecurityContext: &corev1.SecurityContext{
 				Privileged: &privileged,
@@ -607,6 +632,7 @@ func newPeerContainers(cr *fabricv1alpha1.FabricPeer) []corev1.Container {
 			TerminationMessagePath:   "/dev/termination-log",
 			TerminationMessagePolicy: "File",
 		},
+		couchDBContainer,
 	}
 
 	if cr.Spec.Containers != nil {
@@ -625,6 +651,15 @@ func newPeerContainers(cr *fabricv1alpha1.FabricPeer) []corev1.Container {
 }
 
 func newPeerContainerEnv(cr *fabricv1alpha1.FabricPeer) []corev1.EnvVar {
+	builderImage := "smolaon/fabric-ccenv:amd64-2.0.0-snapshot-e77813c85"
+	if cr.Spec.BuilderImage != "" {
+		builderImage = cr.Spec.BuilderImage
+	}
+	runtimeImage := "smolaon/fabric-baseos:amd64-2.0.0-snapshot-e77813c85"
+	if cr.Spec.RuntimeImage != "" {
+		runtimeImage = cr.Spec.RuntimeImage
+	}
+
 	env := []corev1.EnvVar{
 		{
 			Name:  "DOCKER_HOST",
@@ -647,7 +682,7 @@ func newPeerContainerEnv(cr *fabricv1alpha1.FabricPeer) []corev1.EnvVar {
 			Value: "true",
 		},
 		{
-			Name:  "CORE_LOGGING_SPEC",
+			Name:  "FABRIC_LOGGING_SPEC",
 			Value: "info",
 		},
 		{
@@ -765,11 +800,11 @@ func newPeerContainerEnv(cr *fabricv1alpha1.FabricPeer) []corev1.EnvVar {
 		},
 		{
 			Name:  "CORE_CHAINCODE_BUILDER",
-			Value: "smolaon/fabric-ccenv:amd64-2.0.0-snapshot-e77813c85",
+			Value: builderImage,
 		},
 		{
 			Name:  "CORE_CHAINCODE_GOLANG_RUNTIME",
-			Value: "smolaon/fabric-baseos:amd64-2.0.0-snapshot-e77813c85",
+			Value: runtimeImage,
 		},
 	}
 	if cr.Spec.BootstrapNodeAddress != "" {
@@ -777,6 +812,20 @@ func newPeerContainerEnv(cr *fabricv1alpha1.FabricPeer) []corev1.EnvVar {
 			Name:  "CORE_PEER_GOSSIP_BOOTSTRAP",
 			Value: cr.Spec.BootstrapNodeAddress,
 		})
+	}
+
+	if cr.Spec.CouchDBImage != "" {
+		additionalEnv := []corev1.EnvVar{
+			{
+				Name:  "CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME",
+				Value: "admin",
+			},
+			{
+				Name:  "CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD",
+				Value: "password",
+			},
+		}
+		env = append(env, additionalEnv...)
 	}
 
 	return env
@@ -851,7 +900,20 @@ func newPeerVolumes(cr *fabricv1alpha1.FabricPeer) []corev1.Volume {
 		},
 	}
 
-	for key, _ := range cr.Spec.Certificate {
+	if cr.Spec.NodeOUsEnabled {
+		volumes = append(volumes, corev1.Volume{
+			Name: "node-ous",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "node-ous",
+					},
+				},
+			},
+		})
+	}
+
+	for key := range cr.Spec.Certificate {
 		volumes = append(volumes, corev1.Volume{
 			Name: cr.ObjectMeta.Name + "-" + key,
 			VolumeSource: corev1.VolumeSource{
@@ -889,8 +951,16 @@ func newPeerVolumeMounts(cr *fabricv1alpha1.FabricPeer) []corev1.VolumeMount {
 		// },
 	}
 
+	if cr.Spec.NodeOUsEnabled {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "node-ous",
+			MountPath: "/etc/hyperledger/fabric/msp/config.yaml",
+			SubPath:   "config.yaml",
+		})
+	}
+
 	//Add volume mounts for secrets with certificates
-	for key, _ := range cr.Spec.Certificate {
+	for key := range cr.Spec.Certificate {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      cr.ObjectMeta.Name + "-" + key,
 			MountPath: peerMSPPath + key,

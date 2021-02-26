@@ -22,13 +22,13 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"go.etcd.io/etcd/clientv3"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 const (
@@ -37,7 +37,9 @@ const (
 	etcdTimeout  = 15
 )
 
-func Reverse(s string) string {
+var log = logf.Log.WithName("resources_dns")
+
+func reverse(s string) string {
 	n := len(s)
 	runes := make([]rune, n)
 	for _, rune := range s {
@@ -47,7 +49,7 @@ func Reverse(s string) string {
 	return string(runes[n:])
 }
 
-func GetSkyDnsEntry(fqdn string) string {
+func getSkyDNSEntry(fqdn string) string {
 
 	// split into slice by dot .
 	addressSlice := strings.Split(fqdn, ".")
@@ -59,12 +61,13 @@ func GetSkyDnsEntry(fqdn string) string {
 	}
 
 	S := strings.Join(reverseSlice, "/")
-	log.Printf("DNS name: %v", S)
-	//S = Reverse(strings.Replace(Reverse(S), ".", "/", strings.Count(S, "-")-1))
+	// log.Info("DNS name: %v", S)
+	//S = reverse(strings.Replace(reverse(S), ".", "/", strings.Count(S, "-")-1))
 	//log.Printf("DNS name reversed: %v", S)
 	return S
 }
 
+// CheckDNS checks if DNS entry exists and creates it if not
 func CheckDNS(clusterIP, fqdn string) error {
 	if fqdn == "" {
 		return errors.Errorf("Fqdn cannot be empty for clusterIP: %v", clusterIP)
@@ -72,8 +75,8 @@ func CheckDNS(clusterIP, fqdn string) error {
 	if clusterIP == "" {
 		return errors.Errorf("Fqdn cannot be empty for fqdn: %v", fqdn)
 	}
-	log.Printf("checking dns entry for fqdn %v, current IP is: %v", fqdn, clusterIP)
-	// tlsConfig, err := GetTlsConfig()
+	// log.Info("checking dns entry for fqdn %v, current IP is: %v", fqdn, clusterIP)
+	// tlsConfig, err := getTLSConfig()
 	// if err != nil {
 	// 	log.Printf("ERROR getting tls config for etcd client during checking dns for service: %v", svc)
 	// 	return err
@@ -84,20 +87,20 @@ func CheckDNS(clusterIP, fqdn string) error {
 		// TLS:         tlsConfig, // uncomment once tls on etcd is desired
 	})
 	if err != nil {
-		log.Printf("ERROR getting etcd client during fqdn: %v check", fqdn)
+		log.Error(err, "getting etcd client during fqdn:"+fqdn+" check failed")
 		return err
 	}
 	defer cli.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	fqdn = "/skydns/" + GetSkyDnsEntry(fqdn)
+	fqdn = "/skydns/" + getSkyDNSEntry(fqdn)
 
 	// get current IP entry in etcd
 	resp, err := cli.Get(ctx, fqdn)
 	defer cancel()
 
-	log.Printf("DNS response %v, error: %v", resp, err)
+	// log.Info("DNS response %v, error: %v", resp, err)
 	if err != nil || resp == nil {
-		log.Printf("ERROR: while getting fqdn: %v from skydns", fqdn)
+		log.Error(err, "getting fqdn: "+fqdn+" from skydns failed")
 		return errors.Errorf("ERROR: while getting fqdn: %v from skydns", fqdn)
 	}
 	// check if update is needed
@@ -105,25 +108,25 @@ func CheckDNS(clusterIP, fqdn string) error {
 		result := make(map[string]string)
 		err = json.Unmarshal(resp.Kvs[0].Value, &result)
 		if result["host"] != clusterIP {
-			log.Printf("Updating entry for fqdn %v, current IP is: %v", fqdn, clusterIP)
-			err = UpdateDnsRecord(fqdn, clusterIP)
+			// log.Info("Updating entry for fqdn %v, current IP is: %v", fqdn, clusterIP)
+			err = updateDNSRecord(fqdn, clusterIP)
 			if err != nil {
-				log.Printf("Update entry failed for fqdn %v, current IP is: %v, etcdIP: %v, err: %v", fqdn, clusterIP, result["host"], err)
+				log.Error(err, "Update entry failed for fqdn "+fqdn+", current IP is: "+clusterIP+", etcdIP: "+result["host"])
 				return err
 			}
 		}
 	} else {
-		log.Printf("Creating entry for fqdn %v, current IP is: %v", fqdn, clusterIP)
-		err = UpdateDnsRecord(fqdn, clusterIP)
+		// log.Info("Creating entry for fqdn %v, current IP is: %v", fqdn, clusterIP)
+		err = updateDNSRecord(fqdn, clusterIP)
 		if err != nil {
-			log.Printf("Create entry failed for fqdn %v, current IP is: %v, err: %v", fqdn, clusterIP, err)
+			log.Error(err, "Create entry failed for fqdn "+fqdn+", current IP is: "+clusterIP)
 			return err
 		}
 	}
 	return nil
 }
 
-func GetTlsConfig() (*tls.Config, error) {
+func getTLSConfig() (*tls.Config, error) {
 	cert, err := tls.LoadX509KeyPair("../cert.crt", "../cert.key")
 	if err != nil {
 		return nil, err
@@ -144,8 +147,8 @@ func GetTlsConfig() (*tls.Config, error) {
 	return tlsConfig, nil
 }
 
-func UpdateDnsRecord(key, ip string) error {
-	// tlsConfig, err := GetTlsConfig()
+func updateDNSRecord(key, ip string) error {
+	// tlsConfig, err := getTLSConfig()
 	// if err != nil {
 	// 	log.Printf("ERROR getting tls config for etcd client during updating key: %v", key)
 	// 	return err
@@ -156,31 +159,32 @@ func UpdateDnsRecord(key, ip string) error {
 		// TLS:         tlsConfig,
 	})
 	if err != nil {
-		log.Printf("ERROR getting etcd client during key: %v put", key)
+		log.Error(err, "getting etcd client during key: "+key+" put failed")
 		return err
 	}
 	defer cli.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 
-	resp, err := cli.Put(ctx, key, "{\"host\":\""+ip+"\"}")
+	_, err = cli.Put(ctx, key, "{\"host\":\""+ip+"\"}")
 	defer cancel()
-	log.Printf("Put response: %v, error: %v, key: %v", resp, err, key)
+	// log.Info("Put response: %v, error: %v, key: %v", resp, err, key)
 
 	if err != nil {
-		log.Printf("ERROR updating record in etcd key: %v", key)
+		log.Error(err, "updating record in etcd key: "+key+" failed")
 		return err
 	}
 
-	log.Printf("DNS record: %v updated to %v", key, ip)
+	// log.Info("DNS record: %v updated to %v", key, ip)
 	return nil
 }
 
+// DeleteDNS deletes DNS record
 func DeleteDNS(fqdn string) error {
 	if fqdn == "" {
 		return errors.Errorf("ERROR invalid fqdn while deleting dns record: %v", fqdn)
 	}
-	log.Printf("deleting dns entry for key: %v", fqdn)
-	// tlsConfig, err := GetTlsConfig()
+	// log.Info("deleting dns entry for key: %v", fqdn)
+	// tlsConfig, err := getTLSConfig()
 	// if err != nil {
 	// 	log.Printf("ERROR getting tls config for etcd client during deleting key: %v", fqdn)
 	// 	return err
@@ -195,13 +199,14 @@ func DeleteDNS(fqdn string) error {
 	}
 	defer cli.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	fqdn = "/skydns/" + GetSkyDnsEntry(fqdn)
+	fqdn = "/skydns/" + getSkyDNSEntry(fqdn)
 
 	// Delete key from etcd
 	resp, err := cli.Delete(ctx, fqdn)
 	cancel()
 	if err != nil || resp == nil {
-		return log.Output(1, "ERROR: while deleting key: "+fqdn)
+		log.Error(err, "deleting key "+fqdn+" failed")
+		return err
 	}
 	return nil
 }

@@ -16,9 +16,12 @@
 
 package resources
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-import corev1 "k8s.io/api/core/v1"
+import (
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
+// NewNamespace returns new K8S namespace
 func NewNamespace(name string) *corev1.Namespace {
 	return &corev1.Namespace{
 		TypeMeta: metav1.TypeMeta{
@@ -31,6 +34,7 @@ func NewNamespace(name string) *corev1.Namespace {
 	}
 }
 
+// NewServiceAccount returns new K8S service account
 func NewServiceAccount(name string, namespace string) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
 

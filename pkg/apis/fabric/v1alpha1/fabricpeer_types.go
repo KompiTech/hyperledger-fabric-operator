@@ -25,6 +25,10 @@ import (
 // FabricPeerSpec defines the desired state of FabricPeer
 type FabricPeerSpec struct {
 	Image                string                         `json:"image"`
+	BuilderImage         string                         `json:"builderimage"`
+	RuntimeImage         string                         `json:"runtimeimage"`
+	CouchDBImage         string                         `json:"couchdbimage"`
+	DINDImage            string                         `json:"dindimage"`
 	Replicas             int32                          `json:"replicas"`
 	DataVolumeSize       resource.Quantity              `json:"datavolumesize,omitempty"`
 	CertVolumeSize       resource.Quantity              `json:"certvolumesize,omitempty"`
@@ -34,8 +38,8 @@ type FabricPeerSpec struct {
 	BootstrapNodeAddress string                         `json:"bootstrapnodeaddress"`
 	SvcType              corev1.ServiceType             `json:"SvcType,omitempty"`
 	Certificate          map[string][]CertificateSecret `json:"certificate"`
-	//Ability to rewrite/add containers any container to pod
-	Containers []corev1.Container `json:"containers"`
+	Containers           []corev1.Container             `json:"containers"`
+	NodeOUsEnabled       bool                           `json:"nodeousenabled"`
 }
 
 // FabricPeerStatus defines the observed state of FabricPeer
