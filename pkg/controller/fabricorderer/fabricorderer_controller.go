@@ -523,6 +523,13 @@ func newOrdererStatefulSet(cr *fabricv1alpha1.FabricOrderer) *appsv1.StatefulSet
 }
 
 func newOrdererContainers(cr *fabricv1alpha1.FabricOrderer) []corev1.Container {
+	privileged := true
+	procMount := corev1.DefaultProcMount
+
+	metricsImage := cr.Spec.MetricsImage
+	if metricsImage == "" {
+		metricsImage = "eu.gcr.io/hl-development-212213/fabric-node-metrics:latest"
+	}
 
 	baseContainers := []corev1.Container{
 		{
@@ -590,6 +597,60 @@ func newOrdererContainers(cr *fabricv1alpha1.FabricOrderer) []corev1.Container {
 			TerminationMessagePolicy: "File",
 			//ENV
 			Env: newOrdererContainerEnv(cr),
+		},
+		{
+			Name:            "metrics",
+			Image:           metricsImage,
+			ImagePullPolicy: corev1.PullAlways,
+			SecurityContext: &corev1.SecurityContext{
+				Privileged: &privileged,
+				ProcMount:  &procMount,
+			},
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("50Mi"),
+					corev1.ResourceCPU:    resource.MustParse("50m"),
+				},
+			},
+			Ports: []corev1.ContainerPort{
+				{
+					Name:          "metrics",
+					Protocol:      "TCP",
+					ContainerPort: int32(9141),
+				},
+			},
+			TerminationMessagePath:   "/dev/termination-log",
+			TerminationMessagePolicy: "File",
+			Env: []corev1.EnvVar{
+				{
+					Name:  "NODE_NAME",
+					Value: cr.Name,
+				},
+				{
+					Name:  "NODE_TYPE",
+					Value: "orderer",
+				},
+				{
+					Name:  "MSP_DIR",
+					Value: "/etc/hyperledger/orderer/msp",
+				},
+				{
+					Name:  "TLS_DIR",
+					Value: "/etc/hyperledger/orderer/tls",
+				},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "certificate",
+					MountPath: "/etc/hyperledger/orderer/msp",
+					SubPath:   "data/msp",
+				},
+				{
+					Name:      "certificate",
+					MountPath: "/etc/hyperledger/orderer/tls",
+					SubPath:   "data/tls",
+				},
+			},
 		},
 	}
 
@@ -749,6 +810,12 @@ func newOrdererService(cr *fabricv1alpha1.FabricOrderer) *corev1.Service {
 				Protocol:   "TCP",
 				Port:       int32(8080),
 				TargetPort: intstr.FromInt(int(8080)),
+			},
+			{
+				Name:       "certmetrics",
+				Protocol:   "TCP",
+				Port:       int32(9141),
+				TargetPort: intstr.FromInt(int(9141)),
 			},
 		},
 	}

@@ -28,6 +28,7 @@ import (
 // FabricOrdererSpec defines the desired state of FabricOrderer
 type FabricOrdererSpec struct {
 	Image          string                         `json:"image"`
+	MetricsImage   string                         `json:"metricsimage"`
 	Replicas       int32                          `json:"replicas"`
 	DataVolumeSize resource.Quantity              `json:"datavolumesize"`
 	CertVolumeSize resource.Quantity              `json:"cavolumesize"`
