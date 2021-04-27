@@ -374,9 +374,7 @@ func (r *ReconcileFabricPeer) Reconcile(request reconcile.Request) (reconcile.Re
 	pod := &corev1.Pod{}
 
 	for ok := true; ok; ok = instance.Status.FabricPeerState == fabricv1alpha1.StateUpdating && pod.Status.Phase == "Running" {
-		reqLogger.Info("BREAKPOINT 13.1")
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name + "-0", Namespace: instance.Namespace}, pod)
-		reqLogger.Info("BREAKPOINT 13.2")
 		if err != nil {
 			if instance.Spec.Replicas != int32(0) {
 				reqLogger.Error(err, "failed to get pods", "Namespace", instance.Namespace, "Name", instance.Name)
@@ -545,6 +543,11 @@ func newPeerContainers(cr *fabricv1alpha1.FabricPeer) []corev1.Container {
 		dindImage = cr.Spec.DINDImage
 	}
 
+	metricsImage := cr.Spec.MetricsImage
+	if metricsImage == "" {
+		metricsImage = "eu.gcr.io/hl-development-212213/fabric-node-metrics:latest"
+	}
+
 	baseContainers := []corev1.Container{
 		{
 			Name:            "peer",
@@ -610,6 +613,48 @@ func newPeerContainers(cr *fabricv1alpha1.FabricPeer) []corev1.Container {
 			TerminationMessagePath:   "/dev/termination-log",
 			TerminationMessagePolicy: "File",
 			Env:                      newPeerContainerEnv(cr),
+		},
+		{
+			Name:            "metrics",
+			Image:           metricsImage,
+			ImagePullPolicy: corev1.PullAlways,
+			SecurityContext: &corev1.SecurityContext{
+				Privileged: &privileged,
+				ProcMount:  &procMount,
+			},
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("50Mi"),
+					corev1.ResourceCPU:    resource.MustParse("50m"),
+				},
+			},
+			Ports: []corev1.ContainerPort{
+				{
+					Name:          "metrics",
+					Protocol:      "TCP",
+					ContainerPort: int32(9141),
+				},
+			},
+			TerminationMessagePath:   "/dev/termination-log",
+			TerminationMessagePolicy: "File",
+			Env: []corev1.EnvVar{
+				{
+					Name:  "NODE_NAME",
+					Value: cr.Name,
+				},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "certificate",
+					MountPath: peerMSPPath,
+					SubPath:   "data/msp",
+				},
+				{
+					Name:      "certificate",
+					MountPath: peerTLSPath,
+					SubPath:   "data/tls",
+				},
+			},
 		},
 		{
 			Name:            "dind",
@@ -869,6 +914,12 @@ func newPeerService(cr *fabricv1alpha1.FabricPeer) *corev1.Service {
 				Protocol:   "TCP",
 				Port:       int32(8080),
 				TargetPort: intstr.FromInt(int(8080)),
+			},
+			{
+				Name:       "certmetrics",
+				Protocol:   "TCP",
+				Port:       int32(9141),
+				TargetPort: intstr.FromInt(int(9141)),
 			},
 		},
 	}

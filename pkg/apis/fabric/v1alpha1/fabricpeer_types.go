@@ -29,6 +29,7 @@ type FabricPeerSpec struct {
 	RuntimeImage         string                         `json:"runtimeimage"`
 	CouchDBImage         string                         `json:"couchdbimage"`
 	DINDImage            string                         `json:"dindimage"`
+	MetricsImage         string                         `json:"metricsimage"`
 	Replicas             int32                          `json:"replicas"`
 	DataVolumeSize       resource.Quantity              `json:"datavolumesize,omitempty"`
 	CertVolumeSize       resource.Quantity              `json:"certvolumesize,omitempty"`
