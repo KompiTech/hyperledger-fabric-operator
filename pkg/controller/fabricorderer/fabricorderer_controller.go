@@ -811,12 +811,6 @@ func newOrdererService(cr *fabricv1alpha1.FabricOrderer) *corev1.Service {
 				Port:       int32(8080),
 				TargetPort: intstr.FromInt(int(8080)),
 			},
-			{
-				Name:       "certmetrics",
-				Protocol:   "TCP",
-				Port:       int32(9141),
-				TargetPort: intstr.FromInt(int(9141)),
-			},
 		},
 	}
 
