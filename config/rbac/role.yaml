@@ -1,0 +1,60 @@
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - fabric.kompitech.com
+  resources:
+  - fabricorderers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - fabric.kompitech.com
+  resources:
+  - fabricorderers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - fabric.kompitech.com
+  resources:
+  - fabricorderers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - fabric.kompitech.com
+  resources:
+  - fabricpeers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - fabric.kompitech.com
+  resources:
+  - fabricpeers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - fabric.kompitech.com
+  resources:
+  - fabricpeers/status
+  verbs:
+  - get
+  - patch
+  - update

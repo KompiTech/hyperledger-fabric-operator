@@ -1,0 +1,24 @@
+# permissions for end users to edit fabricpeers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fabricpeer-editor-role
+rules:
+- apiGroups:
+  - fabric.kompitech.com
+  resources:
+  - fabricpeers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - fabric.kompitech.com
+  resources:
+  - fabricpeers/status
+  verbs:
+  - get

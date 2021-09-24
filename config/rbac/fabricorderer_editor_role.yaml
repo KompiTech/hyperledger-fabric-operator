@@ -1,0 +1,24 @@
+# permissions for end users to edit fabricorderers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fabricorderer-editor-role
+rules:
+- apiGroups:
+  - fabric.kompitech.com
+  resources:
+  - fabricorderers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - fabric.kompitech.com
+  resources:
+  - fabricorderers/status
+  verbs:
+  - get
