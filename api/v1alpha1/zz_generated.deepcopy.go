@@ -107,10 +107,13 @@ func (in *FabricOrdererSpec) DeepCopyInto(out *FabricOrdererSpec) {
 	out.CertVolumeSize = in.CertVolumeSize.DeepCopy()
 	if in.Certificate != nil {
 		in, out := &in.Certificate, &out.Certificate
-		*out = make(map[string]CertificateSecret, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
+		*out = make([]CertificateSecret, len(*in))
+		copy(*out, *in)
+	}
+	if in.TLSCertificate != nil {
+		in, out := &in.TLSCertificate, &out.TLSCertificate
+		*out = make([]CertificateSecret, len(*in))
+		copy(*out, *in)
 	}
 	if in.Containers != nil {
 		in, out := &in.Containers, &out.Containers
@@ -212,10 +215,13 @@ func (in *FabricPeerSpec) DeepCopyInto(out *FabricPeerSpec) {
 	out.CertVolumeSize = in.CertVolumeSize.DeepCopy()
 	if in.Certificate != nil {
 		in, out := &in.Certificate, &out.Certificate
-		*out = make(map[string]CertificateSecret, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
+		*out = make([]CertificateSecret, len(*in))
+		copy(*out, *in)
+	}
+	if in.TLSCertificate != nil {
+		in, out := &in.TLSCertificate, &out.TLSCertificate
+		*out = make([]CertificateSecret, len(*in))
+		copy(*out, *in)
 	}
 	if in.Containers != nil {
 		in, out := &in.Containers, &out.Containers

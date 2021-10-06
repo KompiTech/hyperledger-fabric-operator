@@ -27,19 +27,20 @@ import (
 
 // FabricOrdererSpec defines the desired state of FabricOrderer
 type FabricOrdererSpec struct {
-	Image          string                       `json:"image"`
-	MetricsImage   string                       `json:"metricsimage"`
-	Replicas       int32                        `json:"replicas"`
-	DataVolumeSize resource.Quantity            `json:"datavolumesize"`
-	CertVolumeSize resource.Quantity            `json:"cavolumesize"`
-	Organization   string                       `json:"organization"`
-	MspId          string                       `json:"mspid"`
-	CommonName     string                       `json:"commonname"`
-	SvcType        corev1.ServiceType           `json:"SvcType,omitempty"`
-	Certificate    map[string]CertificateSecret `json:"certificate"`
-	Genesis        string                       `json:"genesis"`
-	Containers     []corev1.Container           `json:"containers"`
-	NodeOUsEnabled bool                         `json:"nodeousenabled"`
+	Image          string              `json:"image"`
+	MetricsImage   string              `json:"metricsimage"`
+	Replicas       int32               `json:"replicas"`
+	DataVolumeSize resource.Quantity   `json:"datavolumesize"`
+	CertVolumeSize resource.Quantity   `json:"cavolumesize"`
+	Organization   string              `json:"organization"`
+	MspId          string              `json:"mspid"`
+	CommonName     string              `json:"commonname"`
+	SvcType        corev1.ServiceType  `json:"SvcType,omitempty"`
+	Certificate    []CertificateSecret `json:"certificate"`
+	TLSCertificate []CertificateSecret `json:"tlscertificate"`
+	Genesis        string              `json:"genesis"`
+	Containers     []corev1.Container  `json:"containers"`
+	NodeOUsEnabled bool                `json:"nodeousenabled"`
 }
 
 // FabricOrdererStatus defines the observed state of FabricOrderer
