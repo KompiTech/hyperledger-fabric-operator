@@ -1,0 +1,7 @@
+apiVersion: fabric.kompitech.com/v1alpha1
+kind: FabricOrderer
+metadata:
+  name: fabricorderer-sample
+spec:
+  # Add fields here
+  foo: bar

@@ -28,7 +28,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.etcd.io/etcd/clientv3"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (

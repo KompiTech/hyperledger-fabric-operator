@@ -1,0 +1,20 @@
+# permissions for end users to view fabricpeers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fabricpeer-viewer-role
+rules:
+- apiGroups:
+  - fabric.kompitech.com
+  resources:
+  - fabricpeers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - fabric.kompitech.com
+  resources:
+  - fabricpeers/status
+  verbs:
+  - get

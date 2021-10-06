@@ -1,25 +1,28 @@
-#syntax=docker/dockerfile:experimental
-FROM golang:1.12.3-alpine3.9 as build_base
-ARG GOPROXY
-RUN apk add --no-cache --update alpine-sdk make git openssl gcc openssh
-RUN mkdir /src
-RUN mkdir /root/.ssh/
-RUN touch /root/.ssh/known_hosts
-RUN git config --global url."git@github.com:KompiTech".insteadOf https://github.com/KompiTech
-RUN ssh-keyscan github.com >> /root/.ssh/known_hosts
-COPY go.mod /src
-COPY go.sum /src
-WORKDIR /src
-RUN --mount=type=ssh go mod download
+# Build the manager binary
+FROM golang:1.16 as builder
 
-FROM build_base as build
-ARG GOPROXY
-COPY . /src
-WORKDIR /src
-RUN make build-linux
+WORKDIR /workspace
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
+# cache deps before building and copying source so that we don't need to re-download as much
+# and so that source changes don't invalidate our downloaded layer
+RUN go mod download
 
-FROM alpine:3.9
-RUN apk update && apk add ca-certificates && rm -rf /var/cache/apk/*
+# Copy the go source
+COPY main.go main.go
+COPY api/ api/
+COPY controllers/ controllers/
+COPY pkg/ pkg/
+
+# Build
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
+
+# Use distroless as minimal base image to package the manager binary
+# Refer to https://github.com/GoogleContainerTools/distroless for more details
+FROM gcr.io/distroless/static:nonroot
 WORKDIR /
-COPY --from=build /src/build/_output/hl-fabric-operator.linux /
-ENTRYPOINT ["/hl-fabric-operator.linux"]
+COPY --from=builder /workspace/manager .
+USER 65532:65532
+
+ENTRYPOINT ["/manager"]
