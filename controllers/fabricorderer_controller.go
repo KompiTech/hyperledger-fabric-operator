@@ -117,24 +117,12 @@ func (r *FabricOrdererReconciler) Reconcile(ctx context.Context, request ctrl.Re
 	}
 
 	//Create secrets for orderers with certificates`
-	for key, secretData := range instance.Spec.Certificate {
-		secretName := instance.Name + "-" + key
-		data := make(map[string][]byte)
-		// for _, item := range secretData {
-		data[secretName] = []byte(secretData.Value)
-		// }
-		newSecret := &corev1.Secret{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Secret",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      secretName,
-				Namespace: namespace,
-			},
-			Data: data,
-		}
+	// for key, secretData := range instance.Spec.Certificate {
+	newCertSecret := newCertificateSecret(instance.Name+"-cacerts", namespace, instance.Spec.Certificate)
+	newTLSCertSecret := newCertificateSecret(instance.Name+"-tlscacerts", namespace, instance.Spec.TLSCertificate)
+	newCertSecrets := []*corev1.Secret{newCertSecret, newTLSCertSecret}
 
+	for _, newSecret := range newCertSecrets {
 		// Set FabricOrderer instance as the owner and controller
 		if err := controllerutil.SetControllerReference(instance, newSecret, r.Scheme); err != nil {
 			return ctrl.Result{}, err
@@ -419,6 +407,25 @@ func (r *FabricOrdererReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&fabricv1alpha1.FabricOrderer{}).
 		Complete(r)
+}
+
+func newCertificateSecret(name, namespace string, certs []fabricv1alpha1.CertificateSecret) *corev1.Secret {
+	data := make(map[string][]byte)
+	for _, item := range certs {
+		data[name] = []byte(item.Value)
+	}
+	newSecret := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Data: data,
+	}
+	return newSecret
 }
 
 func newOrdererStatefulSet(cr *fabricv1alpha1.FabricOrderer) *appsv1.StatefulSet {
@@ -803,16 +810,23 @@ func newOrdererVolumes(cr *fabricv1alpha1.FabricOrderer) []corev1.Volume {
 		})
 	}
 
-	for key := range cr.Spec.Certificate {
-		volumes = append(volumes, corev1.Volume{
-			Name: cr.GetName() + "-" + key,
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: cr.GetName() + "-" + key,
-				},
+	volumes = append(volumes, corev1.Volume{
+		Name: cr.GetName() + "-cacerts",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: cr.GetName() + "-cacerts",
 			},
-		})
-	}
+		},
+	})
+
+	volumes = append(volumes, corev1.Volume{
+		Name: cr.GetName() + "-tlscacerts",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: cr.GetName() + "-tlscacerts",
+			},
+		},
+	})
 
 	return volumes
 
@@ -852,12 +866,14 @@ func newOrdererVolumeMounts(cr *fabricv1alpha1.FabricOrderer) []corev1.VolumeMou
 	}
 
 	//Add volume mounts for secrets with certificates
-	for key := range cr.Spec.Certificate {
-		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      cr.ObjectMeta.Name + "-" + key,
-			MountPath: ordererMSPPath + key,
-		})
-	}
+	volumeMounts = append(volumeMounts, corev1.VolumeMount{
+		Name:      cr.ObjectMeta.Name + "-cacerts",
+		MountPath: ordererMSPPath + "cacerts",
+	})
+	volumeMounts = append(volumeMounts, corev1.VolumeMount{
+		Name:      cr.ObjectMeta.Name + "-tlscacerts",
+		MountPath: ordererMSPPath + "tlscacerts",
+	})
 
 	return volumeMounts
 }

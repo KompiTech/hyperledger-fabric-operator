@@ -44,7 +44,7 @@ spec:
               builderimage:
                 type: string
               certificate:
-                additionalProperties:
+                items:
                   properties:
                     name:
                       type: string
@@ -54,7 +54,7 @@ spec:
                   - name
                   - value
                   type: object
-                type: object
+                type: array
               certvolumesize:
                 anyOf:
                 - type: integer
@@ -1220,6 +1220,18 @@ spec:
                 type: integer
               runtimeimage:
                 type: string
+              tlscertificate:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    value:
+                      type: string
+                  required:
+                  - name
+                  - value
+                  type: object
+                type: array
             required:
             - bootstrapnodeaddress
             - builderimage
@@ -1235,6 +1247,7 @@ spec:
             - organization
             - replicas
             - runtimeimage
+            - tlscertificate
             type: object
           status:
             description: FabricPeerStatus defines the observed state of FabricPeer

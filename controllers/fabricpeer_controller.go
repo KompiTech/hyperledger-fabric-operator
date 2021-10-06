@@ -117,24 +117,11 @@ func (r *FabricPeerReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 	}
 
 	//Create secrets for peers with certificates`
-	for key, secretData := range instance.Spec.Certificate {
-		secretName := instance.Name + "-" + key
-		data := make(map[string][]byte)
-		// for _, item := range secretData {
-		data[secretName] = []byte(secretData.Value)
-		// }
-		newSecret := &corev1.Secret{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Secret",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      secretName,
-				Namespace: namespace,
-			},
-			Data: data,
-		}
+	newCertSecret := newCertificateSecret(instance.Name+"-cacerts", namespace, instance.Spec.Certificate)
+	newTLSCertSecret := newCertificateSecret(instance.Name+"-tlscacerts", namespace, instance.Spec.TLSCertificate)
+	newCertSecrets := []*corev1.Secret{newCertSecret, newTLSCertSecret}
 
+	for _, newSecret := range newCertSecrets {
 		// Set FabricPeer instance as the owner and controller
 		if err := controllerutil.SetControllerReference(instance, newSecret, r.Scheme); err != nil {
 			return ctrl.Result{}, err
@@ -912,16 +899,23 @@ func newPeerVolumes(cr *fabricv1alpha1.FabricPeer) []corev1.Volume {
 		})
 	}
 
-	for key := range cr.Spec.Certificate {
-		volumes = append(volumes, corev1.Volume{
-			Name: cr.ObjectMeta.Name + "-" + key,
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: cr.ObjectMeta.Name + "-" + key,
-				},
+	volumes = append(volumes, corev1.Volume{
+		Name: cr.GetName() + "-cacerts",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: cr.GetName() + "-cacerts",
 			},
-		})
-	}
+		},
+	})
+
+	volumes = append(volumes, corev1.Volume{
+		Name: cr.GetName() + "-tlscacerts",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: cr.GetName() + "-tlscacerts",
+			},
+		},
+	})
 
 	return volumes
 }
@@ -959,12 +953,14 @@ func newPeerVolumeMounts(cr *fabricv1alpha1.FabricPeer) []corev1.VolumeMount {
 	}
 
 	//Add volume mounts for secrets with certificates
-	for key := range cr.Spec.Certificate {
-		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      cr.ObjectMeta.Name + "-" + key,
-			MountPath: peerMSPPath + key,
-		})
-	}
+	volumeMounts = append(volumeMounts, corev1.VolumeMount{
+		Name:      cr.ObjectMeta.Name + "-cacerts",
+		MountPath: ordererMSPPath + "cacerts",
+	})
+	volumeMounts = append(volumeMounts, corev1.VolumeMount{
+		Name:      cr.ObjectMeta.Name + "-tlscacerts",
+		MountPath: ordererMSPPath + "tlscacerts",
+	})
 
 	return volumeMounts
 }

@@ -46,7 +46,7 @@ spec:
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
               certificate:
-                additionalProperties:
+                items:
                   properties:
                     name:
                       type: string
@@ -56,7 +56,7 @@ spec:
                   - name
                   - value
                   type: object
-                type: object
+                type: array
               commonname:
                 type: string
               containers:
@@ -1212,6 +1212,18 @@ spec:
               replicas:
                 format: int32
                 type: integer
+              tlscertificate:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    value:
+                      type: string
+                  required:
+                  - name
+                  - value
+                  type: object
+                type: array
             required:
             - cavolumesize
             - certificate
@@ -1225,6 +1237,7 @@ spec:
             - nodeousenabled
             - organization
             - replicas
+            - tlscertificate
             type: object
           status:
             description: FabricOrdererStatus defines the observed state of FabricOrderer
