@@ -96,12 +96,12 @@ func GetPeerVirtualServiceSpec(name, target string) *crd.VirtualServiceSpec {
 	}
 
 	dst1 := crd.Destination{Port: crd.PortSelector{Number: uint32(extPort)}, Host: name}
-	tcpMatchreq1 := []crd.TlsL4MatchAttributes{{Port: extPort, Sni_hosts: []string{target}}}
+	tcpMatchreq1 := []crd.TlsL4MatchAttributes{{Port: extPort, SniHosts: []string{target}}}
 	dstWeight1 := []crd.DestinationWeight{{Destination: dst1, Weight: 100}}
 	tcpRoute1 := crd.TLSRoute{Match: tcpMatchreq1, Route: dstWeight1}
 
 	dst2 := crd.Destination{Port: crd.PortSelector{Number: uint32(ccPort)}, Host: name}
-	tcpMatchreq2 := []crd.TlsL4MatchAttributes{{Port: ccPort, Sni_hosts: []string{target}}}
+	tcpMatchreq2 := []crd.TlsL4MatchAttributes{{Port: ccPort, SniHosts: []string{target}}}
 	dstWeight2 := []crd.DestinationWeight{{Destination: dst2, Weight: 100}}
 	tcpRoute2 := crd.TLSRoute{Match: tcpMatchreq2, Route: dstWeight2}
 
@@ -117,7 +117,7 @@ func GetOrdererVirtualServiceSpec(name, target string) *crd.VirtualServiceSpec {
 	}
 
 	dst := crd.Destination{Port: crd.PortSelector{Number: uint32(ordererPort)}, Host: name}
-	tcpMatchreq := []crd.TlsL4MatchAttributes{{Port: ordererPort, Sni_hosts: []string{target}}}
+	tcpMatchreq := []crd.TlsL4MatchAttributes{{Port: ordererPort, SniHosts: []string{target}}}
 	dstWeight := []crd.DestinationWeight{{Destination: dst, Weight: 100}}
 	tcpRoute := crd.TLSRoute{Match: tcpMatchreq, Route: dstWeight}
 

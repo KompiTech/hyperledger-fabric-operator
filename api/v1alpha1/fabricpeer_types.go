@@ -47,11 +47,6 @@ type FabricPeerSpec struct {
 	NodeOUsEnabled       bool                `json:"nodeousenabled"`
 }
 
-// FabricPeerStatus defines the observed state of FabricPeer
-type FabricPeerStatus struct {
-	FabricPeerState string `json:"fabricpeerstate"`
-}
-
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
@@ -61,7 +56,18 @@ type FabricPeer struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   FabricPeerSpec   `json:"spec,omitempty"`
+	State  string           `json:"state,omitempty"`
 	Status FabricPeerStatus `json:"status,omitempty"`
+}
+
+// FabricPeerStatus defines the observed state of FabricPeer
+type FabricPeerStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+
+	// Nodes store the name of the pods which are running FabricPeer instances
+	Nodes []string `json:"nodes,omitempty"`
+	State string   `json:"state,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -1239,13 +1239,19 @@ spec:
             - replicas
             - tlscertificate
             type: object
+          state:
+            type: string
           status:
             description: FabricOrdererStatus defines the observed state of FabricOrderer
             properties:
-              fabricordererstate:
+              nodes:
+                description: Nodes store the name of the pods which are running FabricOrderer
+                  instances
+                items:
+                  type: string
+                type: array
+              state:
                 type: string
-            required:
-            - fabricordererstate
             type: object
         type: object
     served: true

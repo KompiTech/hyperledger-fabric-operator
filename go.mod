@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/imdario/mergo v0.3.12
-	github.com/jiribroulik/pkg v0.0.0-20181128230851-3d341800d0a0
+	github.com/jiribroulik/pkg v0.0.0-20211008112707-0c482bacdc23
 	github.com/knative/pkg v0.0.0-20191107185656-884d50f09454 // indirect
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0

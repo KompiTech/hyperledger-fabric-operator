@@ -1249,13 +1249,19 @@ spec:
             - runtimeimage
             - tlscertificate
             type: object
+          state:
+            type: string
           status:
             description: FabricPeerStatus defines the observed state of FabricPeer
             properties:
-              fabricpeerstate:
+              nodes:
+                description: Nodes store the name of the pods which are running FabricPeer
+                  instances
+                items:
+                  type: string
+                type: array
+              state:
                 type: string
-            required:
-            - fabricpeerstate
             type: object
         type: object
     served: true
