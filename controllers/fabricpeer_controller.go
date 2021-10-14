@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"reflect"
+	"time"
 
 	crd "github.com/jiribroulik/pkg/apis/istio/v1alpha3"
 	appsv1 "k8s.io/api/apps/v1"
@@ -67,14 +68,14 @@ type FabricPeerReconciler struct {
 func (r *FabricPeerReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
-	reqLogger := log.Log.WithValues("Request.Namespace", request.Namespace)
+	reqLogger := log.Log.WithValues("namespace", request.Namespace)
 	reqLogger = reqLogger.WithName(request.Name)
 	reqLogger.Info("Reconciling FabricPeer")
 	defer reqLogger.Info("Reconcile done")
 
 	// Fetch the FabricPeer instance
 	instance := &fabricv1alpha1.FabricPeer{}
-	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.Client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -86,10 +87,12 @@ func (r *FabricPeerReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
+	reqLogger.Info("State: " + instance.Status.State)
+
 	// Change state to Running when enters in Updating to prevent infinite loop
-	if instance.Status.FabricPeerState == fabricv1alpha1.StateUpdating {
-		instance.Status.FabricPeerState = fabricv1alpha1.StateRunning
-		err := r.Client.Update(context.TODO(), instance)
+	if instance.Status.State == fabricv1alpha1.StateUpdating {
+		instance.Status.State = fabricv1alpha1.StateRunning
+		err := r.Client.Update(ctx, instance)
 		if err != nil {
 			reqLogger.Error(err, "failed to update Fabric peer status")
 			return ctrl.Result{}, err
@@ -103,12 +106,11 @@ func (r *FabricPeerReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 	newServiceAccount := resources.NewServiceAccount("vault", namespace)
 	currentServiceAccount := &corev1.ServiceAccount{}
 
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "vault", Namespace: namespace}, currentServiceAccount)
-	reqLogger.Error(err, "Error reading SA", "ISNOTFOUND", errors.IsNotFound(err))
+	err = r.Client.Get(ctx, types.NamespacedName{Name: "vault", Namespace: namespace}, currentServiceAccount)
 	if err != nil && errors.IsNotFound(err) {
 		//Secret not exists
 		reqLogger.Info("Creating a new service account", "Namespace", newServiceAccount.GetNamespace(), "Name", newServiceAccount.GetName())
-		err = r.Client.Create(context.TODO(), newServiceAccount)
+		err = r.Client.Create(ctx, newServiceAccount)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -128,11 +130,11 @@ func (r *FabricPeerReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 		}
 
 		currentSecret := &corev1.Secret{}
-		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: newSecret.Name, Namespace: newSecret.Namespace}, currentSecret)
+		err = r.Client.Get(ctx, types.NamespacedName{Name: newSecret.Name, Namespace: newSecret.Namespace}, currentSecret)
 		if err != nil && errors.IsNotFound(err) {
 			//Secret not exists
 			reqLogger.Info("Creating a new secret", "Namespace", newSecret.Namespace, "Name", newSecret.Name)
-			err = r.Client.Create(context.TODO(), newSecret)
+			err = r.Client.Create(ctx, newSecret)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -143,12 +145,11 @@ func (r *FabricPeerReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 		eq := reflect.DeepEqual(newSecret.Data, currentSecret.Data)
 		if !eq {
 			reqLogger.Info("Updating secret", "Namespace", newSecret.Namespace, "Name", newSecret.Name)
-			err = r.Client.Update(context.TODO(), newSecret)
+			err = r.Client.Update(ctx, newSecret)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
 		}
-
 	}
 
 	//Create sts for peer
@@ -173,10 +174,10 @@ func (r *FabricPeerReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 
 	// Check if this StatefulSet already exists
 	currentSts := &appsv1.StatefulSet{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: newSts.Name, Namespace: newSts.Namespace}, currentSts)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: newSts.Name, Namespace: newSts.Namespace}, currentSts)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new StatefulSet", "Namespace", newSts.Namespace, "Name", newSts.Name)
-		err = r.Client.Create(context.TODO(), newSts)
+		err = r.Client.Create(ctx, newSts)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -205,12 +206,12 @@ func (r *FabricPeerReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 
 	if !reflect.DeepEqual(candidate.Spec, currentSts.Spec) {
 		reqLogger.Info("UPDATING peer statefulset!!!", "Namespace", candidate.Namespace, "Name", candidate.Name)
-		err = r.Client.Update(context.TODO(), candidate)
+		err = r.Client.Update(ctx, candidate)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		instance.Status.FabricPeerState = fabricv1alpha1.StateUpdating
-		err := r.Client.Update(context.TODO(), instance)
+		instance.Status.State = fabricv1alpha1.StateUpdating
+		err := r.Client.Update(ctx, instance)
 		if err != nil {
 			reqLogger.Error(err, "failed to update Fabric peer status")
 			return ctrl.Result{}, err
@@ -229,10 +230,10 @@ func (r *FabricPeerReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 
 	// Check if this Service already exists
 	currentService := &corev1.Service{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: newService.Name, Namespace: newService.Namespace}, currentService)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: newService.Name, Namespace: newService.Namespace}, currentService)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new Service", "Namespace", newService.Namespace, "Name", newService.Name)
-		err = r.Client.Create(context.TODO(), newService)
+		err = r.Client.Create(ctx, newService)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -240,7 +241,7 @@ func (r *FabricPeerReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: newService.Name, Namespace: newService.Namespace}, currentService)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: newService.Name, Namespace: newService.Namespace}, currentService)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -266,10 +267,10 @@ func (r *FabricPeerReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 
 	// Check if this Gateway already exists
 	currentGateway := &crd.Gateway{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: newGateway.Name, Namespace: newGateway.Namespace}, currentGateway)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: newGateway.Name, Namespace: newGateway.Namespace}, currentGateway)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new Gateway", "Namespace", newGateway.Namespace, "Name", newGateway.Name)
-		err = r.Client.Create(context.TODO(), newGateway)
+		err = r.Client.Create(ctx, newGateway)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -292,10 +293,10 @@ func (r *FabricPeerReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 
 	// Check if this Gateway already exists
 	currentVirtualService := &crd.VirtualService{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: newVirtualService.Name, Namespace: newVirtualService.Namespace}, currentVirtualService)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: newVirtualService.Name, Namespace: newVirtualService.Namespace}, currentVirtualService)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new Istio Virtual Service", "Namespace", newVirtualService.Namespace, "Name", newVirtualService.Name)
-		err = r.Client.Create(context.TODO(), newVirtualService)
+		err = r.Client.Create(ctx, newVirtualService)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -306,8 +307,8 @@ func (r *FabricPeerReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 	//Update CR status
 	pod := &corev1.Pod{}
 
-	for ok := true; ok; ok = instance.Status.FabricPeerState == fabricv1alpha1.StateUpdating && pod.Status.Phase == "Running" {
-		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: instance.Name + "-0", Namespace: instance.Namespace}, pod)
+	for ok := true; ok; ok = instance.Status.State == fabricv1alpha1.StateUpdating && pod.Status.Phase == "Running" {
+		err = r.Client.Get(ctx, types.NamespacedName{Name: instance.Name + "-0", Namespace: instance.Namespace}, pod)
 		if err != nil {
 			if instance.Spec.Replicas != int32(0) {
 				reqLogger.Error(err, "failed to get pods", "Namespace", instance.Namespace, "Name", instance.Name)
@@ -315,8 +316,8 @@ func (r *FabricPeerReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 			}
 			peerState := fabricv1alpha1.StateSuspended
 			reqLogger.Info("Update fabric peer status", "Namespace", instance.Namespace, "Name", instance.Name, "State", peerState)
-			instance.Status.FabricPeerState = peerState
-			err := r.Client.Update(context.TODO(), instance)
+			instance.Status.State = peerState
+			err := r.Client.Update(ctx, instance)
 			if err != nil {
 				reqLogger.Error(err, "failed to update fabric peer status")
 				return ctrl.Result{}, err
@@ -342,12 +343,24 @@ func (r *FabricPeerReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 	}
 
 	// Update status.Nodes if needed
-	if !reflect.DeepEqual(peerState, instance.Status.FabricPeerState) {
+	if peerState != instance.Status.State {
 		reqLogger.Info("Update fabricpeer status", "Namespace", instance.Namespace, "Name", instance.Name, "State", peerState)
-		instance.Status.FabricPeerState = peerState
-		err := r.Client.Update(context.TODO(), instance)
+		instance.Status.State = peerState
+		err := r.Status().Update(ctx, instance)
 		if err != nil {
-			reqLogger.Error(err, "failed to update Fabric peer status")
+			reqLogger.Error(err, "Failed to update FabricPeer status")
+			return ctrl.Result{}, err
+		}
+	}
+
+	podNames := []string{instance.Name + "-0"}
+
+	// Update status.Nodes if needed
+	if !reflect.DeepEqual(podNames, instance.Status.Nodes) {
+		instance.Status.Nodes = podNames
+		err := r.Status().Update(ctx, instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update FabricPeer status")
 			return ctrl.Result{}, err
 		}
 	}
@@ -355,7 +368,10 @@ func (r *FabricPeerReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 	// Pod already exists - don't requeue
 	reqLogger.Info("Skip reconcile: sts already exists", "Namespace", instance.Namespace, "Name", instance.Name)
 
-	return ctrl.Result{}, nil
+	if peerState == fabricv1alpha1.StateRunning {
+		return ctrl.Result{}, nil
+	}
+	return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -424,8 +440,7 @@ func newPeerStatefulSet(cr *fabricv1alpha1.FabricPeer) *appsv1.StatefulSet {
 
 // newServiceForPeer returns a service for FabricPeer with the same name/namespace as the cr
 func newPeerContainers(cr *fabricv1alpha1.FabricPeer) []corev1.Container {
-	var user int64
-	user = 0
+	var user int64 = 0
 	privileged := true
 	procMount := corev1.DefaultProcMount
 
@@ -486,7 +501,7 @@ func newPeerContainers(cr *fabricv1alpha1.FabricPeer) []corev1.Container {
 
 	metricsImage := cr.Spec.MetricsImage
 	if metricsImage == "" {
-		metricsImage = "eu.gcr.io/hl-development-212213/fabric-node-metrics:latest"
+		metricsImage = "kompitech/fabric-node-metrics:latest"
 	}
 
 	baseContainers := []corev1.Container{
@@ -1009,8 +1024,9 @@ func newPeerVolumeClaimTemplates(cr *fabricv1alpha1.FabricPeer) []corev1.Persist
 func newPeerLabels(cr *fabricv1alpha1.FabricPeer) map[string]string {
 
 	return map[string]string{
-		"app":  cr.Kind,
-		"name": cr.Name,
+		"app":     cr.Kind,
+		"name":    cr.Name,
+		"peer_cr": cr.Name,
 	}
 }
 

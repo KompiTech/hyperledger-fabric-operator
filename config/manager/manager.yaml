@@ -27,6 +27,11 @@ spec:
       containers:
       - command:
         - /manager
+        env:
+        - name: OPERATOR_VAULT_ADDRESS
+          value: https://vault-cluster.vault-operator:8200
+        - name: VAULT_SKIP_VERIFY
+          value: "true"
         args:
         - --leader-elect
         image: controller:latest

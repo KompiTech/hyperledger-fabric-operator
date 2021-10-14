@@ -43,11 +43,6 @@ type FabricOrdererSpec struct {
 	NodeOUsEnabled bool                `json:"nodeousenabled"`
 }
 
-// FabricOrdererStatus defines the observed state of FabricOrderer
-type FabricOrdererStatus struct {
-	FabricOrdererState string `json:"fabricordererstate"`
-}
-
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
@@ -57,7 +52,18 @@ type FabricOrderer struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   FabricOrdererSpec   `json:"spec,omitempty"`
+	State  string              `json:"state,omitempty"`
 	Status FabricOrdererStatus `json:"status,omitempty"`
+}
+
+// FabricOrdererStatus defines the observed state of FabricOrderer
+type FabricOrdererStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+
+	// Nodes store the name of the pods which are running FabricOrderer instances
+	Nodes []string `json:"nodes,omitempty"`
+	State string   `json:"state,omitempty"`
 }
 
 //+kubebuilder:object:root=true
