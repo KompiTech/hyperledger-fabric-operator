@@ -89,8 +89,8 @@ func (r *FabricOrdererReconciler) Reconcile(ctx context.Context, request ctrl.Re
 	}
 
 	// Change state to Running when enters in Updating to prevent infinite loop
-	if instance.State == fabricv1alpha1.StateUpdating {
-		instance.State = fabricv1alpha1.StateRunning
+	if instance.Status.State == fabricv1alpha1.StateUpdating {
+		instance.Status.State = fabricv1alpha1.StateRunning
 		err := r.Client.Update(ctx, instance)
 		if err != nil {
 			reqLogger.Error(err, "failed to update Fabric orderer status")
@@ -255,7 +255,7 @@ func (r *FabricOrdererReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		instance.State = fabricv1alpha1.StateUpdating
+		instance.Status.State = fabricv1alpha1.StateUpdating
 		err := r.Client.Update(ctx, instance)
 		if err != nil {
 			reqLogger.Error(err, "failed to update Fabric orderer status")
@@ -352,7 +352,7 @@ func (r *FabricOrdererReconciler) Reconcile(ctx context.Context, request ctrl.Re
 	//Update CR status
 	pod := &corev1.Pod{}
 
-	for ok := true; ok; ok = instance.State == fabricv1alpha1.StateUpdating && pod.Status.Phase == "Running" {
+	for ok := true; ok; ok = instance.Status.State == fabricv1alpha1.StateUpdating && pod.Status.Phase == "Running" {
 		err = r.Client.Get(ctx, types.NamespacedName{Name: instance.Name + "-0", Namespace: instance.Namespace}, pod)
 		if err != nil {
 			if instance.Spec.Replicas != int32(0) {
@@ -361,7 +361,7 @@ func (r *FabricOrdererReconciler) Reconcile(ctx context.Context, request ctrl.Re
 			}
 			ordererState := fabricv1alpha1.StateSuspended
 			reqLogger.Info("Update orderer status", "Namespace", instance.Namespace, "Name", instance.Name, "State", ordererState)
-			instance.State = ordererState
+			instance.Status.State = ordererState
 			err := r.Client.Update(ctx, instance)
 			if err != nil {
 				reqLogger.Error(err, "failed to update orderer status")
@@ -390,7 +390,7 @@ func (r *FabricOrdererReconciler) Reconcile(ctx context.Context, request ctrl.Re
 	// Update status.Nodes if needed
 	if ordererState != instance.Status.State {
 		reqLogger.Info("Update fabricorderer status", "Namespace", instance.Namespace, "Name", instance.Name, "State", ordererState)
-		instance.State = ordererState
+		instance.Status.State = ordererState
 		err := r.Status().Update(ctx, instance)
 		if err != nil {
 			reqLogger.Error(err, "failed to update Fabric orderer status")
